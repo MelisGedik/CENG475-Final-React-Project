@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
-import NavBar from './components/NavBar'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -8,13 +7,19 @@ import MovieDetails from './pages/MovieDetails'
 import Admin from './pages/Admin'
 import Profile from './pages/Profile'
 import History from './pages/History'
+import Watchlist from './pages/Watchlist'
 import NotFound from './pages/NotFound'
 import { useAuth } from './state/AuthContext'
 
 function PrivateRoute({ children, roles }) {
   const { user } = useAuth()
+  
+  // Kullanıcı yoksa Login'e at
   if (!user) return <Navigate to="/login" replace />
+  
+  // Rolü yetmiyorsa Ana Sayfaya at
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
+  
   return children
 }
 
@@ -28,15 +33,18 @@ export default function App() {
     onScroll()
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
   return (
     <div className="app">
-      <NavBar />
-      <main id="main" className="container">
+      <main id="main">
         <Routes>
+          {/* Herkese Açık Sayfalar */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/movie/:id" element={<MovieDetails />} />
+
+          {/* Sadece Admin Girebilir */}
           <Route
             path="/admin"
             element={
@@ -45,6 +53,8 @@ export default function App() {
               </PrivateRoute>
             }
           />
+
+          {/* Sadece Üyeler Girebilir */}
           <Route
             path="/profile"
             element={
@@ -61,6 +71,16 @@ export default function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/watchlist"
+            element={
+              <PrivateRoute>
+                <Watchlist />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Hata Sayfası */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

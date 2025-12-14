@@ -1,19 +1,19 @@
 import React from 'react'
-import { createRoot } from 'react-dom/client'
+import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './state/AuthContext'
-import { ThemeProvider } from './state/ThemeContext'
+import { MovieProvider } from './state/MovieContext' // YENİ EKLENDİ
 import './styles.css'
 
-createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
+      <AuthProvider>
+        <MovieProvider> 
           <App />
-        </AuthProvider>
-      </ThemeProvider>
+        </MovieProvider>
+      </AuthProvider>
     </BrowserRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 )

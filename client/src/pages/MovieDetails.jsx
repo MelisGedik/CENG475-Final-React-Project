@@ -1,135 +1,172 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import api from '../api'
-import StarRating from '../components/StarRating'
-import MovieCard from '../components/MovieCard'
-import { useAuth } from '../state/AuthContext'
-import Toast from '../components/Toast'
-import Button from '../ui/Button'
-import { Textarea } from '../ui/Input'
+import React, { useEffect, useState } from "react"
+import { Link, useParams } from "react-router-dom"
+import api from "../api"
+import { useAuth } from "../state/AuthContext"
+import { useMovies } from "../state/MovieContext"
 
 export default function MovieDetails() {
   const { id } = useParams()
-  const [movie, setMovie] = useState(null)
-  const [reviews, setReviews] = useState([])
-  const [rating, setRating] = useState(0)
-  const [review, setReview] = useState('')
-  const [message, setMessage] = useState(null)
   const { user } = useAuth()
-  const [tags, setTags] = useState([])
-  const [stats, setStats] = useState({ 1:0,2:0,3:0,4:0,5:0 })
+  const { addToWatchlist } = useMovies()
 
-  async function load() {
-    const [{ data: m }, { data: r }, { data: g }, { data: s }] = await Promise.all([
-      api.get(`/api/movies/${id}`),
-      api.get(`/api/movies/${id}/ratings`),
-      api.get(`/api/movies/${id}/genres`).catch(() => ({ data: [] })),
-      api.get(`/api/movies/${id}/stats`).catch(() => ({ data: { histogram: {1:0,2:0,3:0,4:0,5:0} } }))
-    ])
-    setMovie(m)
-    setReviews(r)
-    setTags(Array.isArray(g) ? g : [])
-    setStats((s && s.histogram) ? s.histogram : { 1:0,2:0,3:0,4:0,5:0 })
-  }
+  const [movie, setMovie] = useState(null)
+  const [ratings, setRatings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState(null)
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    let alive = true
+    async function load() {
+      try {
+        setLoading(true)
+        setErr(null)
 
-  async function submitRating(e) {
-    e.preventDefault()
-    if (!user) { setMessage('Please login to rate'); return }
-    if (!rating) { setMessage('Please select a rating'); return }
-    if (review.length > 500) { setMessage('Review must be <= 500 characters'); return }
-    try {
-      const { data } = await api.post(`/api/movies/${id}/ratings`, { rating, review })
-      setMovie(data.movie)
-      setMessage('Your rating was saved')
-      const { data: r } = await api.get(`/api/movies/${id}/ratings`)
-      setReviews(r)
-      // history moved to its own page
-    } catch (e) {
-      setMessage(e.response?.data?.error || 'Could not save rating')
+        const [mRes, rRes] = await Promise.all([
+          api.get(`/api/movies/${id}`),
+          api.get(`/api/movies/${id}/ratings`)
+        ])
+
+        if (!alive) return
+        setMovie(mRes.data)
+        setRatings(Array.isArray(rRes.data) ? rRes.data : [])
+      } catch (e) {
+        if (!alive) return
+        setErr("Movie details could not be loaded.")
+      } finally {
+        if (!alive) return
+        setLoading(false)
+      }
     }
+    load()
+    return () => { alive = false }
+  }, [id])
+
+  if (loading) {
+    return <div style={{ padding: 24, color: "#a7b6cc" }}>Loading...</div>
   }
 
-  async function removeMyRating() {
-    try {
-      const { data } = await api.delete(`/api/movies/${id}/ratings/me`)
-      setMovie(data.movie)
-      setMessage('Your rating was removed')
-      const { data: r } = await api.get(`/api/movies/${id}/ratings`)
-      setReviews(r)
-    } catch (e) {
-      setMessage(e.response?.data?.error || 'Could not remove rating')
-    }
-  }
-
-  if (!movie) return <p>Loading...</p>
-
-  return (
-    <div className="details">
-      <div className="details-hero">
-        <img className="cover" src={movie.poster_url} alt={movie.title} />
-        <div className="details-info">
-          <h2 className="title">{movie.title}</h2>
-          <div className="meta">
-            <span className="tags">
-              {(movie.genres ? String(movie.genres).split(',') : tags).map((t, i) => (
-                <span className="chip" key={i}>{t}</span>
-              ))}
-            </span>
-            <span className="pill">{movie.release_year}</span>
-            <span className="pill">⭐ {movie.avg_rating?.toFixed(1)}</span>
-          </div>
-          <p className="desc">{movie.description}</p>
+  if (err) {
+    return (
+      <div style={{ padding: 24 }}>
+        <div style={{ padding: 16, borderRadius: 12, background: "rgba(255,0,0,0.08)", color: "#ffb4b4" }}>
+          {err}
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <Link to="/" className="btn btn-outline">Back Home</Link>
         </div>
       </div>
+    )
+  }
 
-      <section className="rate">
-        <h3>Rate this movie</h3>
-        <form onSubmit={submitRating} className="ui-card rate-card">
-          <StarRating value={rating} onChange={setRating} />
-          <Textarea label="Review (optional)" placeholder="Share your thoughts" value={review} onChange={e => setReview(e.target.value)} maxLength={500} hint={`${review.length}/500`} />
-          <div className="row">
-            <Button type="submit">Save</Button>
-            <Button type="button" variant="outline" onClick={removeMyRating}>Remove My Rating</Button>
-          </div>
-        </form>
-      </section>
+  if (!movie) return null
 
-      <section>
-        <h3>Ratings Overview</h3>
-        <div className="ui-card" aria-label="Rating histogram">
-          {[5,4,3,2,1].map(st => (
-            <div key={st} className="row space-between" style={{marginBottom:6}}>
-              <span>{st}★</span>
-              <div style={{flex:1, margin:'0 8px', background:'#12203f', borderRadius:8, overflow:'hidden'}}>
-                <div style={{height:8, width: `${Math.min(100, (stats[st]||0) / Math.max(1, Object.values(stats).reduce((a,b)=>a+b,0)) * 100)}%`, background:'#ffd166'}} />
-              </div>
-              <span className="muted">{stats[st]||0}</span>
+  return (
+    <div style={{ padding: "24px 0" }}>
+      <div style={{ width: "min(1100px, 92%)", margin: "0 auto" }}>
+        <Link to="/" className="btn btn-outline" style={{ marginBottom: 16 }}>
+          ← Back
+        </Link>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "320px 1fr",
+          gap: 18,
+          alignItems: "start"
+        }}>
+          <div style={{
+            borderRadius: 16,
+            overflow: "hidden",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)"
+          }}>
+            <div style={{ aspectRatio: "2 / 3", background: "#10131a" }}>
+              <img
+                src={movie.poster_url || "https://picsum.photos/seed/fallbackdetails/600/900"}
+                alt={movie.title}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
 
-      <section>
-        <h3>Reviews</h3>
-        {reviews.length === 0 ? <p className="muted">No reviews yet.</p> : (
-          <ul className="reviews">
-            {reviews.map(r => (
-              <li key={r.id} className="ui-card">
-                <div className="row space-between">
-                  <strong>{r.user_name}</strong>
-                  <span>⭐ {r.rating}</span>
+          <div style={{
+            borderRadius: 16,
+            padding: 16,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)"
+          }}>
+            <h1 style={{ margin: 0, fontSize: 28 }}>{movie.title}</h1>
+
+            <div style={{ marginTop: 8, color: "#a7b6cc" }}>
+              {movie.genre} • {movie.release_year} • ⭐ {Number(movie.avg_rating || 0).toFixed(1)}
+            </div>
+
+            {movie.genres?.length ? (
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {movie.genres.map((t) => (
+                  <span key={t} style={{
+                    fontSize: 12,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    background: "rgba(124,92,255,0.12)",
+                    border: "1px solid rgba(124,92,255,0.25)",
+                    color: "#c9bcff"
+                  }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            <p style={{ marginTop: 14, lineHeight: 1.6, color: "#d7e0ef" }}>
+              {movie.description}
+            </p>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              {user && (
+                <button
+                  className="btn"
+                  style={{ background: "#7c5cff", color: "#fff" }}
+                  onClick={() => addToWatchlist(movie.title)}
+                >
+                  + Watchlist
+                </button>
+              )}
+              <Link to="/" className="btn btn-outline">Home</Link>
+            </div>
+
+            <div style={{ marginTop: 22 }}>
+              <h3 style={{ margin: "0 0 10px 0" }}>Recent Reviews</h3>
+
+              {ratings.length === 0 ? (
+                <div style={{ color: "#a7b6cc" }}>No reviews yet.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {ratings.slice(0, 8).map((r) => (
+                    <div key={r.id} style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.06)"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ fontWeight: 800 }}>{r.user_name || `User #${r.user_id}`}</div>
+                        <div style={{ color: "#a7b6cc" }}>⭐ {r.rating}</div>
+                      </div>
+                      {r.review ? (
+                        <div style={{ marginTop: 8, color: "#d7e0ef" }}>{r.review}</div>
+                      ) : null}
+                      <div style={{ marginTop: 8, fontSize: 12, color: "#7f91aa" }}>
+                        {String(r.created_at || "")}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                {r.review && <p>{r.review}</p>}
-                <small className="muted">{new Date(r.created_at + 'Z').toLocaleString()}</small>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              )}
+            </div>
 
-      <Toast message={message} type="info" onClose={() => setMessage(null)} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,57 +1,62 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../api'
 
-const AuthCtx = createContext(null)
+const AuthContext = createContext()
 
 export function AuthProvider({ children }) {
+  // Sayfa yenilenince giriş gitmesin diye localStorage kontrolü yapıyoruz
   const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem('user')
-    return raw ? JSON.parse(raw) : null
+    const savedUser = localStorage.getItem('user')
+    return savedUser ? JSON.parse(savedUser) : null
   })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    if (user) localStorage.setItem('user', JSON.stringify(user))
-    else localStorage.removeItem('user')
-  }, [user])
-
-  async function login(email, password) {
-    setLoading(true); setError(null)
+  // LOGIN FONKSİYONU
+  const login = async (email, password) => {
     try {
-      const { data } = await api.post('/api/auth/login', { email, password })
-      localStorage.setItem('token', data.token)
-      setUser(data.user)
+      // Sunucuya istek at
+      const res = await api.post('/login', { email, password })
+      
+      // Gelen veriyi kaydet
+      const { user, token } = res.data
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
+      
+      // State'i güncelle (Bu sayede menüler değişecek)
+      setUser(user)
       return true
-    } catch (e) {
-      setError(e.response?.data?.error || 'Login failed')
-      return false
-    } finally { setLoading(false) }
+    } catch (error) {
+      console.error("Login hatası:", error)
+      throw error
+    }
   }
 
-  async function register(payload) {
-    setLoading(true); setError(null)
+  // REGISTER FONKSİYONU
+  const register = async (name, email, password) => {
     try {
-      const { data } = await api.post('/api/auth/register', payload)
-      localStorage.setItem('token', data.token)
-      setUser(data.user)
+      const res = await api.post('/register', { name, email, password })
+      const { user, token } = res.data
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
+      setUser(user)
       return true
-    } catch (e) {
-      setError(e.response?.data?.error || 'Registration failed')
-      return false
-    } finally { setLoading(false) }
+    } catch (error) {
+      console.error("Register hatası:", error)
+      throw error
+    }
   }
 
-  function logout() {
+  // LOGOUT FONKSİYONU
+  const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
     setUser(null)
   }
 
-  const value = { user, loading, error, login, register, logout, setError }
-  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
+  return (
+    <AuthContext.Provider value={{ user, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
-export function useAuth() {
-  return useContext(AuthCtx)
-}
-
+export const useAuth = () => useContext(AuthContext)

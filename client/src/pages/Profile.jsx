@@ -1,81 +1,84 @@
-import { useEffect, useState } from 'react'
-import { useAuth } from '../state/AuthContext'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../api'
-import Toast from '../components/Toast'
-import Button from '../ui/Button'
-import { Input } from '../ui/Input'
+import { useAuth } from '../state/AuthContext'
+
+// İki resmi de import ediyoruz
+import heroBgDark from '../assets/hero-bg.jpg'
+import heroBgLight from '../assets/hero-bg-light.jpg'
 
 export default function Profile() {
-  const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const [me, setMe] = useState(null)
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [msg, setMsg] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    let mounted = true
-    async function load() {
-      try {
-        const { data } = await api.get('/api/me')
-        if (!mounted) return
-        setMe(data)
-      } catch (e) {
-        if (!mounted) return
-        const status = e?.response?.status
-        if (status === 401) {
-          setMsg('Session expired. Please login again.')
-          logout()
-          navigate('/login', { replace: true })
-          return
-        }
-        // Fallback to known user info so page still renders
-        setMsg(e?.response?.data?.error || 'Failed to load profile')
-        if (user) setMe(user)
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
-    load()
-    return () => { mounted = false }
-  }, [logout, navigate, user])
+  // Mevcut temayı hafızadan kontrol et
+  const currentTheme = localStorage.getItem('siteTheme') || 'dark'
+  
+  // Temaya göre resim seç
+  const bgImage = currentTheme === 'light' ? heroBgLight : heroBgDark
 
-  if (loading) return <p>Loading...</p>
+  if (!user) return null
+
   return (
-    <div>
-      <h2>Profile</h2>
-      <div className="ui-card">
-        <p><strong>Name:</strong> {me.name}</p>
-        <p><strong>Email:</strong> {me.email}</p>
-        <p><strong>Role:</strong> {me.role}</p>
-        {me.created_at && (
-          <p><strong>Joined:</strong> {new Date(me.created_at + 'Z').toLocaleString()}</p>
-        )}
-      </div>
+    <div 
+      className="auth-page" 
+      style={{ backgroundImage: `url(${bgImage})` }} // Seçilen resmi kullan
+    >
+      <div className="auth-overlay" />
 
-      <h3>Change Password</h3>
-      <form className="ui-card" onSubmit={async (e) => {
-        e.preventDefault()
-        if (!currentPassword || !newPassword) { setMsg('Please fill all fields'); return }
-        if (newPassword.length < 6) { setMsg('New password must be at least 6 characters'); return }
-        if (newPassword !== confirm) { setMsg('Passwords do not match'); return }
-        try {
-          await api.post('/api/auth/change-password', { current_password: currentPassword, new_password: newPassword })
-          setMsg('Password updated')
-          setCurrentPassword(''); setNewPassword(''); setConfirm('')
-        } catch (e) {
-          setMsg(e.response?.data?.error || 'Failed to change password')
-        }
-      }}>
-        <Input label="Current Password" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
-        <Input label="New Password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-        <Input label="Confirm New Password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} />
-        <Button type="submit">Update Password</Button>
-      </form>
-      <Toast message={msg} type="info" onClose={() => setMsg(null)} />
+      {/* Profil Kartı */}
+      <div className="auth-card" style={{ maxWidth: '500px', textAlign: 'left' }}>
+        
+        {/* Üst Kısım: Başlık ve Kapat */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+           <h2 className="auth-title" style={{ margin: 0, fontSize: '24px' }}>My Profile</h2>
+           <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', color: '#a7b6cc', cursor: 'pointer', fontSize: '14px' }}>
+             ✕ Close
+           </button>
+        </div>
+
+        {/* Avatar ve İsim */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #243557' }}>
+          <div style={{
+            width: '70px', height: '70px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, #7c5cff, #22d3ee)', 
+            color: '#fff', fontSize: '28px', fontWeight: 'bold',
+            display: 'grid', placeItems: 'center', boxShadow: '0 4px 15px rgba(124, 92, 255, 0.4)'
+          }}>
+            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div>
+            <h3 className="auth-title" style={{ margin: '0 0 4px 0', fontSize: '20px' }}>{user.name}</h3>
+            <span className="auth-subtitle">Movie Fanatic</span>
+          </div>
+        </div>
+
+        {/* Detaylar */}
+        <div style={{ display: 'grid', gap: '15px' }}>
+          <div>
+            <label style={{ display: 'block', color: '#7c5cff', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>EMAIL ADDRESS</label>
+            <div className="auth-input" style={{ padding: '12px' }}>
+              {user.email}
+            </div>
+          </div>
+          
+          <div>
+             <label style={{ display: 'block', color: '#7c5cff', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>MEMBERSHIP</label>
+             <div className="auth-input" style={{ padding: '12px' }}>
+               Standard User
+             </div>
+          </div>
+        </div>
+
+        {/* Çıkış Butonu */}
+        <button 
+          onClick={() => { logout(); navigate('/'); }}
+          className="btn btn-outline" 
+          style={{ width: '100%', marginTop: '30px', borderColor: '#ef4444', color: '#ef4444' }}
+        >
+          Sign Out
+        </button>
+
+      </div>
     </div>
   )
 }

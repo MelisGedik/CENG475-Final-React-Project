@@ -1,50 +1,78 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'
-import Toast from '../components/Toast'
-import Button from '../ui/Button'
-import { Input } from '../ui/Input'
+import heroBg from '../assets/hero-bg.jpg'
 
 export default function Register() {
-  const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [errors, setErrors] = useState({})
+  const [error, setError] = useState(null)
+
+  const { register } = useAuth()
   const navigate = useNavigate()
-  const { register, error, setError, loading } = useAuth()
 
-  function validate() {
-    const er = {}
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) er.email = 'Enter a valid email'
-    if (!name || name.trim().length < 2) er.name = 'Name must be at least 2 characters'
-    if (!password || password.length < 6) er.password = 'Password must be at least 6 characters'
-    if (password !== confirm) er.confirm = 'Passwords do not match'
-    setErrors(er)
-    return Object.keys(er).length === 0
-  }
-
-  async function onSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!validate()) return
-    const ok = await register({ email: email.trim(), name: name.trim(), password })
-    if (ok) navigate('/')
+    try {
+      await register(name, email, password)
+      navigate('/')
+    } catch (err) {
+      setError('Registration failed. Try again.')
+    }
   }
 
   return (
-    <div className="auth auth--center">
-      <div className="auth-card ui-card">
-        <h2 className="auth-title">Create account</h2>
-        <form className="auth-form" onSubmit={onSubmit} noValidate>
-          <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} error={errors.email} />
-          <Input label="Name" value={name} onChange={e => setName(e.target.value)} error={errors.name} />
-          <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} error={errors.password} />
-          <Input label="Confirm Password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} error={errors.confirm} />
-          <Button type="submit" disabled={loading}>Create account</Button>
+    <div 
+      className="auth-page" 
+      style={{ backgroundImage: `url(${heroBg})` }}
+    >
+      <div className="auth-overlay" />
+
+      <div className="auth-card">
+        <h1 className="auth-title">Create Account</h1>
+        <p className="auth-subtitle">Join the Movie World to create your lists</p>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          {error && <div className="ui-error">{error}</div>}
+
+          <input
+            type="text"
+            placeholder="Full Name"
+            className="auth-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          
+          <input
+            type="email"
+            placeholder="Email Address"
+            className="auth-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          
+          <input
+            type="password"
+            placeholder="Password"
+            className="auth-input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          <button type="submit" className="btn btn-primary" style={{width: '100%', padding: '14px'}}>
+            Register
+          </button>
         </form>
-        <p className="muted">Already have an account? <Link to="/login">Login</Link></p>
+
+        <div className="auth-footer">
+          Already have an account? 
+          <Link to="/login" className="auth-link">Login</Link>
+        </div>
       </div>
-      <Toast message={error} onClose={() => setError(null)} />
     </div>
   )
 }
