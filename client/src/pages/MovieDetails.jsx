@@ -7,7 +7,7 @@ import { useMovies } from "../state/MovieContext"
 export default function MovieDetails() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { addToWatchlist } = useMovies()
+  const { addToWatchlist, watchlist, removeFromWatchlist } = useMovies()
 
   const [movie, setMovie] = useState(null)
   const [ratings, setRatings] = useState([])
@@ -121,15 +121,79 @@ export default function MovieDetails() {
               {movie.description}
             </p>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+            <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
               {user && (
-                <button
-                  className="btn"
-                  style={{ background: "#7c5cff", color: "#fff" }}
-                  onClick={() => addToWatchlist(movie.title)}
-                >
-                  + Watchlist
-                </button>
+                <>
+                  {/* WATCHLIST TOGGLE */}
+                  {(() => {
+                    // Check if in watchlist
+                    // We use loose comparison for IDs or check title-based logic from context
+                    // Best is to use the context's watchlist state
+                    const inWatchlist = watchlist.some(w => {
+                      if (w.id === movie.id || w.movieId === movie.id) return true
+                      return false
+                    })
+
+                    return inWatchlist ? (
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => removeFromWatchlist(movie.id)}
+                      >
+                        - Remove from Watchlist
+                      </button>
+                    ) : (
+                      <button
+                        className="btn"
+                        style={{ background: "#7c5cff", color: "#fff" }}
+                        onClick={() => addToWatchlist(movie)}
+                      >
+                        + Watchlist
+                      </button>
+                    )
+                  })()}
+
+                  {/* RENTAL CONTROLS */}
+                  {movie.rented_by ? (
+                    movie.rented_by === user.id ? (
+                      <button
+                        className="btn"
+                        style={{ background: "#ff4b4b", color: "#fff" }}
+                        onClick={async () => {
+                          if (!window.confirm(`Return "${movie.title}"?`)) return
+                          try {
+                            await api.post(`/api/movies/${movie.id}/return`)
+                            // Update local state
+                            setMovie(prev => ({ ...prev, rented_by: null }))
+                            // Remove from watchlist if present (same logic as other pages)
+                            removeFromWatchlist(movie.id)
+                            alert('Movie returned')
+                          } catch (err) { alert('Return failed: ' + (err.response?.data?.error || err.message)) }
+                        }}
+                      >
+                        Return Movie
+                      </button>
+                    ) : (
+                      <button disabled className="btn btn-outline" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        Rented by another user
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      className="btn"
+                      style={{ background: "rgba(124, 92, 255, 0.1)", color: "#aab", border: "1px solid rgba(124, 92, 255, 0.3)" }}
+                      onClick={async () => {
+                        if (!window.confirm(`Rent "${movie.title}"?`)) return
+                        try {
+                          await api.post(`/api/movies/${movie.id}/rent`)
+                          setMovie(prev => ({ ...prev, rented_by: user.id }))
+                          alert('Movie rented!')
+                        } catch (err) { alert('Rent failed: ' + (err.response?.data?.error || err.message)) }
+                      }}
+                    >
+                      Rent Movie
+                    </button>
+                  )}
+                </>
               )}
               <Link to="/" className="btn btn-outline">Home</Link>
             </div>

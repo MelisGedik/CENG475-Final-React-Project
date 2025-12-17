@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
 import api from '../api'
 import Toast from '../components/Toast'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../state/AuthContext'
 import Button from '../ui/Button'
 import { Input, Select, Textarea } from '../ui/Input'
 
 export default function Admin() {
+  const { user, logout } = useAuth()
+  const [theme, setTheme] = useState(() => localStorage.getItem('siteTheme') || 'dark')
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme)
+    localStorage.setItem('siteTheme', theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme(p => p === 'dark' ? 'light' : 'dark')
+
   const [movies, setMovies] = useState([])
   const [users, setUsers] = useState([])
   const [activity, setActivity] = useState([])
@@ -114,127 +126,172 @@ export default function Admin() {
   }
 
   return (
-    <div>
-      <h2>Admin Panel</h2>
+    <div style={{ minHeight: '100vh' }}>
+      <nav className="nav">
+        <div className="nav-inner">
+          <Link to="/" className="brand">Movie<span className="brand-accent">Rec</span></Link>
 
-      <div className="grid two">
-        {/* MOVIES */}
-        <section>
-          <div className="row space-between">
-            <h3>Movies</h3>
+          <div className="nav-links">
+            <Link to="/" className="nav-item">Home</Link>
+            <Link to="/history" className="nav-item">History</Link>
+            <Link to="/watchlist" className="nav-item">Watchlist</Link>
+            <Link to="/profile" className="nav-item">Profile</Link>
+            <Link to="/admin" className="nav-item" style={{ color: '#fff' }}>Admin</Link>
           </div>
 
-          <form className="ui-card" onSubmit={addMovie} noValidate>
-            <Input
-              label="Title"
-              value={form.title}
-              onChange={e => updateField('title', e.target.value)}
-              error={errors.title}
-            />
+          <span className="theme-toggle" onClick={toggleTheme}>
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </span>
 
-            <Textarea
-              label="Description"
-              value={form.description}
-              onChange={e => updateField('description', e.target.value)}
-              error={errors.description}
-            />
+          <div className="auth-buttons">
+            <div className="user-menu">
+              <div onClick={logout} className="user-avatar" title="Logout">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
 
-            <div className="row">
-              <Select
-                label="Genre"
-                value={form.genre}
-                onChange={e => updateField('genre', e.target.value)}
-              >
-                <option>Drama</option><option>Action</option><option>Sci-Fi</option>
-                <option>Comedy</option><option>Romance</option><option>Crime</option>
-              </Select>
+      <div className="container admin-page">
+        <div className="page-header">
+          <h2 style={{ margin: 0 }}>Admin Panel</h2>
+          <span className="muted">Manage movies, users and activity</span>
+        </div>
 
-              <Input
-                label="Year"
-                type="number"
-                value={form.release_year}
-                onChange={e => updateField('release_year', e.target.value)}
-                error={errors.release_year}
-              />
+        <div className="grid two" style={{ marginTop: 20 }}>
+          {/* MOVIES */}
+          <section>
+            <div className="row space-between">
+              <h3>Movies</h3>
             </div>
 
-            <Input
-              label="Poster URL"
-              value={form.poster_url}
-              onChange={e => updateField('poster_url', e.target.value)}
-              error={errors.poster_url}
-            />
+            <form className="ui-card" onSubmit={addMovie} noValidate>
+              <Input
+                label="Title"
+                value={form.title}
+                onChange={e => updateField('title', e.target.value)}
+                error={errors.title}
+              />
 
-            <Input
-              label="Genres (comma separated)"
-              placeholder="e.g. Drama, Romance"
-              value={form.genres}
-              onChange={e => updateField('genres', e.target.value)}
-              hint={'First "Genre" is the primary category; tags add more.'}
-            />
+              <Textarea
+                label="Description"
+                value={form.description}
+                onChange={e => updateField('description', e.target.value)}
+                error={errors.description}
+              />
 
-            <Button type="submit">Add Movie</Button>
-          </form>
+              <div className="row">
+                <Select
+                  label="Genre"
+                  value={form.genre}
+                  onChange={e => updateField('genre', e.target.value)}
+                >
+                  <option>Action</option>
+                  <option>Adventure</option>
+                  <option>Animation</option>
+                  <option>Comedy</option>
+                  <option>Crime</option>
+                  <option>Documentary</option>
+                  <option>Drama</option>
+                  <option>Family</option>
+                  <option>Fantasy</option>
+                  <option>Horror</option>
+                  <option>Mystery</option>
+                  <option>Romance</option>
+                  <option>Sci-Fi</option>
+                  <option>Thriller</option>
+                  <option>War</option>
+                  <option>Western</option>
+                </Select>
 
-          <ul className="list">
-            {movies.map(m => (
-              <li key={m.id} className="row space-between ui-card">
-                <div>
-                  <strong>{m.title}</strong>
-                  <div className="meta small">
-                    <span>{m.genre}</span> <span>{m.release_year}</span> <span>⭐ {Number(m.avg_rating || 0).toFixed(1)}</span>
-                  </div>
-                </div>
-                <button className="ui-btn ui-btn--outline" onClick={() => deleteMovie(m.id)}>Delete</button>
-              </li>
-            ))}
-          </ul>
-        </section>
+                <Input
+                  label="Year"
+                  type="number"
+                  value={form.release_year}
+                  onChange={e => updateField('release_year', e.target.value)}
+                  error={errors.release_year}
+                />
+              </div>
 
-        {/* USERS + ACTIVITY */}
-        <section>
-          <h3>Users</h3>
-          <ul className="list">
-            {users.map(u => (
-              <li key={u.id} className="row space-between ui-card">
-                <div>
-                  <strong>{u.name}</strong>
-                  <div className="meta small">
-                    <span>{u.email}</span> <span>role: {u.role}</span>
-                  </div>
-                </div>
-                <button className="ui-btn" onClick={() => toggleRole(u)}>
-                  {u.role === 'admin' ? 'Make User' : 'Make Admin'}
-                </button>
-              </li>
-            ))}
-          </ul>
+              <Input
+                label="Poster URL"
+                value={form.poster_url}
+                onChange={e => updateField('poster_url', e.target.value)}
+                error={errors.poster_url}
+              />
 
-          <div style={{ marginTop: 20 }}>
-            <h3>Recent Activity (Last saved ratings)</h3>
-            {activity.length === 0 ? (
-              <p className="muted">No activity yet.</p>
-            ) : (
-              <ul className="list">
-                {activity.map(x => (
-                  <li key={x.id} className="ui-card">
-                    <div className="row space-between">
-                      <strong>{x.user_name} ({x.email})</strong>
-                      <span className="muted">{new Date(x.created_at).toLocaleString()}</span>
-                    </div>
+              <Input
+                label="Genres (comma separated)"
+                placeholder="e.g. Drama, Romance"
+                value={form.genres}
+                onChange={e => updateField('genres', e.target.value)}
+                hint={'First "Genre" is the primary category; tags add more.'}
+              />
+
+              <Button type="submit">Add Movie</Button>
+            </form>
+
+            <ul className="list">
+              {movies.map(m => (
+                <li key={m.id} className="row space-between ui-card">
+                  <div>
+                    <strong>{m.title}</strong>
                     <div className="meta small">
-                      <span>Movie: {x.movie_title}</span> &nbsp; | &nbsp; <span>⭐ {x.rating}</span>
+                      <span>{m.genre}</span> <span>{m.release_year}</span> <span>⭐ {Number(m.avg_rating || 0).toFixed(1)}</span>
                     </div>
-                    {x.review ? <p style={{ marginTop: 8 }}>{x.review}</p> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-      </div>
+                  </div>
+                  <button className="ui-btn ui-btn--outline" onClick={() => deleteMovie(m.id)}>Delete</button>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-      <Toast message={message} type="info" onClose={() => setMessage(null)} />
+          {/* USERS + ACTIVITY */}
+          <section>
+            <h3>Users</h3>
+            <ul className="list">
+              {users.map(u => (
+                <li key={u.id} className="row space-between ui-card">
+                  <div>
+                    <strong>{u.name}</strong>
+                    <div className="meta small">
+                      <span>{u.email}</span> <span>role: {u.role}</span>
+                    </div>
+                  </div>
+                  <button className="ui-btn" onClick={() => toggleRole(u)}>
+                    {u.role === 'admin' ? 'Make User' : 'Make Admin'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div style={{ marginTop: 20 }}>
+              <h3>Recent Activity (Last saved ratings)</h3>
+              {activity.length === 0 ? (
+                <p className="muted">No activity yet.</p>
+              ) : (
+                <ul className="list">
+                  {activity.map(x => (
+                    <li key={x.id} className="ui-card">
+                      <div className="row space-between">
+                        <strong>{x.user_name} ({x.email})</strong>
+                        <span className="muted">{new Date(x.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className="meta small">
+                        <span>Movie: {x.movie_title}</span> &nbsp; | &nbsp; <span>⭐ {x.rating}</span>
+                      </div>
+                      {x.review ? <p style={{ marginTop: 8 }}>{x.review}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <Toast message={message} type="info" onClose={() => setMessage(null)} />
+      </div>
     </div>
   )
 }

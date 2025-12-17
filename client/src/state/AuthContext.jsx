@@ -15,12 +15,12 @@ export function AuthProvider({ children }) {
     try {
       // Sunucuya istek at
       const res = await api.post('/login', { email, password })
-      
+
       // Gelen veriyi kaydet
       const { user, token } = res.data
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(user))
-      
+
       // State'i güncelle (Bu sayede menüler değişecek)
       setUser(user)
       return true
@@ -52,8 +52,15 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  // UPDATE USER LOCAL (Profil güncellenince)
+  const updateUser = (updatedData) => {
+    const newUser = { ...user, ...updatedData }
+    localStorage.setItem('user', JSON.stringify(newUser))
+    setUser(newUser)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )
